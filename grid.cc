@@ -7,7 +7,9 @@
 #include <utility>
 
 grid::grid(int s=4): size(s), sc(0) {
-  for(int i=0; i<s*s; ++i) data.push_back(0);
+  if(!load()) {
+    for(int i=0; i<size*size; ++i) data.push_back(0);
+  }
 }
 grid::~grid() {}
 
@@ -114,11 +116,12 @@ void grid::R() {
 }
 void grid::sav() {
   std::ofstream s;
-  s.open("gridgame.sav");
+  s.open("gridgame.sav", std::ofstream::binary);
   if(s.is_open()) {
-    for(auto d : data) s << d << ",";
-    s << std::endl;
-    s << sc << std::endl;
+    s.write((char*)&size, sizeof(size));
+    s.write((char*)&sc, sizeof(sc));
+    for(auto d : data)
+      s.write((char*)&d, sizeof(d));
     s.close();
   }
   else std::cout << "unable to save progress";
@@ -126,4 +129,22 @@ void grid::sav() {
 void grid::gg() {
   sav();
   std::cout << "your score: " << sc << std::endl;
+}
+bool grid::load() {
+  int buf;
+  std::ifstream s;
+  s.open("gridgame.sav", std::ofstream::binary);
+  if(s.is_open()) {
+    if(s.peek()==EOF) return false;
+    s.read((char*)&buf, sizeof(buf));
+    size = buf;
+    s.read((char*)&buf, sizeof(buf));
+    sc = buf;
+    for(int i=0; i<size*size; ++i) {
+      s.read((char*)&buf, sizeof(buf));
+      data.push_back(buf);
+    }
+    return true;
+  }
+  return false;
 }

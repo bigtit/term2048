@@ -8,6 +8,7 @@ class grid {
   void T(); // transpose
   void R(); // reverse
   void sav();
+  bool load();
 public:
   grid(int s);
   ~grid();

@@ -12,8 +12,8 @@ void sighdl(int sn) {
 int main() {
   bool b;
   grid g(4);
-  g.born();
-  g.born();
+  //g.born();
+  //g.born();
   g.draw();
   char c;
   signal(SIGINT, sighdl);
