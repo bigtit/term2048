@@ -5,17 +5,20 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <utility>
+#include <climits>
+using std::cout;
 
-grid::grid(int s=4): size(s), sc(0) {
+grid::grid(int s=4): size(s), sc(0), bst(-1) {
   if(!load()) {
-    for(int i=0; i<size*size; ++i) data.push_back(0);
+    for(int i=0; i<size*size; ++i) data.push_back(1);
   }
 }
 grid::~grid() {}
 
 bool grid::dead() {
   for(auto d : data) {
-    if(!d) return false;
+    if(1==d) return false;
+    else if(2048==d) return true;
   }
   // full
   for(int i=0; i<size; ++i) {
@@ -30,15 +33,15 @@ bool grid::dead() {
 bool grid::left() {
   auto t = data;
   for(int i=0; i<size; ++i) {
-    int tmp = 0, idx = 0;
+    int tmp = 1, idx = 0;
     for(int j=0; j<size; ++j) {
-      if(data[size*i+j]) {
+      if(1<data[size*i+j]) {
         if(tmp==data[size*i+j]) {
           data[size*i+idx++] = tmp<<1;
           sc += tmp;
-          tmp = 0;
+          tmp = 1;
         }
-        else if(!tmp) tmp = data[size*i+j];
+        else if(1==tmp) tmp = data[size*i+j];
         else {
           data[size*i+idx++] = tmp;
           tmp = data[size*i+j];
@@ -46,7 +49,7 @@ bool grid::left() {
       }
     }
     data[size*i+idx++] = tmp;
-    for(auto k=idx; k<size; ++k) data[size*i+k] = 0;
+    for(auto k=idx; k<size; ++k) data[size*i+k] = 1;
   }
   return t!=data;
 }
@@ -70,21 +73,25 @@ bool grid::down() {
   return b;
 }
 
-void grid::born() {
+unsigned int randme() {
   int fd = open("/dev/urandom", O_RDONLY);
-  unsigned int buf = 0, c = 0;
-  read(fd, &buf, 4);
-  int r2 = 2<<(buf%2);
+  unsigned int buf = 0;
   read(fd, &buf, 4);
   close(fd);
+  return buf;
+}
+
+void grid::born() {
+  int c = 0;
+  int r2 = 2<<(randme()%2);
   for(auto d : data) {
-    if(!d) ++c;
+    if(1==d) ++c;
   }
   if(!c) return;
-  int r = buf%c;
+  int r = randme()%c;
   c = 0;
   for(int i=0; i<data.size(); ++i) {
-    if(!data[i] && c++==r) {
+    if(1==data[i] && c++==r) {
       data[i] = r2;
       break;
     }
@@ -92,14 +99,15 @@ void grid::born() {
 }
 
 void grid::draw() {
-  std::cout << "Current status with score (" << sc << "):" << std::endl;
+  cout << "Current status with score (" << sc << "):" << std::endl;
   for(int i=0; i<size; ++i) {
     for(int j=0; j<size; ++j) {
-      std::cout << data[size*i+j] << "\t";
+      auto c = data[size*i+j];
+      cout << (c>1?c:0) << "\t";
     }
-    std::cout << std::endl;
+    cout << std::endl;
   }
-  std::cout << std::endl;
+  cout << std::endl;
 }
 
 void grid::T() {
@@ -124,11 +132,12 @@ void grid::sav() {
       s.write((char*)&d, sizeof(d));
     s.close();
   }
-  else std::cout << "unable to save progress";
+  else cout << "unable to save progress";
 }
 void grid::gg() {
+  draw();
   sav();
-  std::cout << "your score: " << sc << std::endl;
+  cout << "your score: " << sc << std::endl;
 }
 bool grid::load() {
   int buf;
@@ -147,4 +156,91 @@ bool grid::load() {
     return true;
   }
   return false;
+}
+
+int sono(const line& d, int s) {
+  int a = 0, b = 0;
+  for(int i=0; i<s-1; ++i) {
+    for(int j=0; j<s-1; ++j) {
+      a += d[s*i+j]/d[s*i+j+1];
+      a += d[s*i+j]/d[s*i+j+s];
+      b += d[s*i+j+1]/d[s*i+j];
+      b += d[s*i+j+s]/d[s*i+j];
+    }
+  }
+  return (a+b)*2-(a>b?a-b:b-a);
+}
+int empty(const line& data) {
+  int a = 0;
+  for(auto d : data) {
+    if(1==d) ++a;
+  }
+  return a<<1;
+}
+int eval(const line& d, int s) {
+   return sono(d,s)+empty(d);
+}
+
+bool grid::moveme(int m) {
+  switch(m) {
+  case 0: return left();
+  case 1: return right();
+  case 2: return up();
+  case 3: return down();
+  default: return false;
+  }
+}
+
+// output: evaluation, best path
+int grid::minimax(int depth, int min, int max, bool t) {
+  if(!depth || dead()) return eval(data, size);
+  // save data;
+  auto d = data;
+  auto c = sc;
+  // human, min player
+  if(t) {
+    int v1 = max;
+    for(int i=0; i<4; ++i) {
+      if(moveme(i)) {
+        int v2 = minimax(depth-1, min, v1, false);
+        data = d;
+        sc = c;
+        if(v2<v1) {
+          v1 = v2;
+          bst = i;
+        }
+        if(v1<min){
+          return min;
+        }
+      }
+    }
+    return v1;
+  }
+  else { // max player
+    int v1 = min;
+    for(int i=0; i<size*size; ++i){
+      if(1<data[i]) continue;
+      data[i] = 2<<(randme()%2);
+      int v2 = minimax(depth-1, v1, max, true);
+      data = d;
+      sc = c;
+      if(v2>v1) v1 = v2;
+      if(v1>max) return max;
+    }
+    return v1;
+  }
+}
+
+int grid::autorun() {
+  int c = 0;
+  while(!dead()) {
+    // minimax for current board
+    minimax(6, 0, INT_MAX, true);
+    cout << bst << '\n';
+    moveme(bst);
+    born();
+    draw();
+    ++c;
+  }
+  return c;
 }

@@ -1,8 +1,9 @@
 #include <vector>
+using line = std::vector<int>;
 
 class grid {
   int size;
-  std::vector<int> data;
+  line data;
   int max;
   int sc;
   void T(); // transpose
@@ -16,8 +17,15 @@ public:
   bool right();
   bool up();
   bool down();
+  bool moveme(int);
   void born();
   void draw();
   bool dead();
   void gg();
+
+  int minimax(int, int, int, bool);
+  int autorun();
+private:
+  int bst;
 };
+
