@@ -6,7 +6,8 @@ int main() {
   g.born();
   g.born();
   g.draw();
-  g.autorun();
+  int c = g.autorun();
   g.gg();
+  std::cout << c << " steps\n";
   return 0;
 }

@@ -8,7 +8,7 @@
 #include <climits>
 using std::cout;
 
-grid::grid(int s=4): size(s), sc(0), bst(-1) {
+grid::grid(int s=4): size(s), sc(0) {
   if(!load()) {
     for(int i=0; i<size*size; ++i) data.push_back(1);
   }
@@ -168,17 +168,18 @@ int sono(const line& d, int s) {
       b += d[s*i+j+s]/d[s*i+j];
     }
   }
-  return (a+b)*2-(a>b?a-b:b-a);
+  int c = (a+b)-(a>b?a-b:b-a);
+  return c;
 }
-int empty(const line& data) {
+int empty(const line& d, int s) {
   int a = 0;
-  for(auto d : data) {
-    if(1==d) ++a;
-  }
-  return a<<1;
+  for(int i=0; i<s*s; ++i) if(1==d[i]) ++a;
+  return a;
 }
 int eval(const line& d, int s) {
-   return sono(d,s)+empty(d);
+  auto a = sono(d, s);
+  auto b = empty(d, s);
+  return a<<2+b<<4;
 }
 
 bool grid::moveme(int m) {
@@ -192,52 +193,57 @@ bool grid::moveme(int m) {
 }
 
 // output: evaluation, best path
-int grid::minimax(int depth, int min, int max, bool t) {
-  if(!depth || dead()) return eval(data, size);
-  // save data;
+int grid::minimax(int depth) {
+  int choice = -1, best = 0;
   auto d = data;
   auto c = sc;
-  // human, min player
-  if(t) {
-    int v1 = max;
-    for(int i=0; i<4; ++i) {
-      if(moveme(i)) {
-        int v2 = minimax(depth-1, min, v1, false);
-        data = d;
-        sc = c;
-        if(v2<v1) {
-          v1 = v2;
-          bst = i;
-        }
-        if(v1<min){
-          return min;
-        }
-      }
+  for(int i=0; i<4; ++i) {
+    if(!moveme(i)) continue;
+    int tmp = max(depth-1, INT_MIN, INT_MAX);
+    data = d; sc = c;
+    if(tmp>best) {
+      best = tmp;
+      choice = i;
     }
-    return v1;
   }
-  else { // max player
-    int v1 = min;
-    for(int i=0; i<size*size; ++i){
-      if(1<data[i]) continue;
-      data[i] = 2<<(randme()%2);
-      int v2 = minimax(depth-1, v1, max, true);
-      data = d;
-      sc = c;
-      if(v2>v1) v1 = v2;
-      if(v1>max) return max;
-    }
-    return v1;
+  return choice;
+}
+
+int grid::min(int depth, int alpha, int beta) {
+  if(!depth || dead() || alpha>=beta) return eval(data, size);
+  int v = beta;
+  auto d = data;
+  auto c = sc;
+  for(int i=0; i<4; ++i) {
+    if(!moveme(i)) continue;
+    int v2 = max(depth-1, alpha, v);
+    data = d; sc = c;
+    if(v2<v) v = v2;
+    if(v<alpha) return alpha;
   }
+  return v;
+}
+int grid::max(int depth, int alpha, int beta) {
+  if(!depth || dead() || alpha>=beta) return eval(data, size);
+  int v = alpha;
+  for(int i=0; i<size*size; ++i) {
+    if(1<data[i]) continue;
+    data[i] = 2<<(randme()%2);
+    int v2 = min(depth-1, v, beta);
+    data[i] = 1;
+    if(v2>v) v = v2;
+    if(v>beta) return beta;
+  }
+  return v;
 }
 
 int grid::autorun() {
   int c = 0;
+  int dir;
   while(!dead()) {
-    // minimax for current board
-    minimax(6, 0, INT_MAX, true);
-    cout << bst << '\n';
-    moveme(bst);
+    if(-1==(dir=minimax(9-empty(data, size)/2))) break;
+    cout << dir << '\n';
+    moveme(dir);
     born();
     draw();
     ++c;

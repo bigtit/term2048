@@ -4,12 +4,13 @@ using line = std::vector<int>;
 class grid {
   int size;
   line data;
-  int max;
   int sc;
   void T(); // transpose
   void R(); // reverse
   void sav();
   bool load();
+  int max(int, int, int);
+  int min(int, int, int);
 public:
   grid(int s);
   ~grid();
@@ -23,9 +24,7 @@ public:
   bool dead();
   void gg();
 
-  int minimax(int, int, int, bool);
+  int minimax(int);
   int autorun();
-private:
-  int bst;
 };
 
